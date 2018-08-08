@@ -21,7 +21,7 @@ Integrate Billplz in Hikashop 3.5. For Hikashop 2.6, please refer to Billplz for
 
   * **API Secret Key** : Get the API Key at Billplz Setting Page
   * **Collection ID** : Get the Collection ID at Billplz Billing Page
-   **X Signature Key** : Get the X Signature Key at Billplz Setting Page
+  * **X Signature Key** : Get the X Signature Key at Billplz Setting Page
   * Debug : No
   * Invalid status : cancelled
   * Verified status : Confirmed
