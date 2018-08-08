@@ -105,7 +105,7 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
                 'description' => "Order Number: " . $order->order_number,
                 'reference_2_label' => "Order ID",
                 'reference_2' => $order_id,
-                'amount' => strval($amount * 100),
+                'amount' => strval($amount),
                 'return_url' => $return_url
             );
 
