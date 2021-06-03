@@ -1,22 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
-<extension type="plugin" version="3.2.0" method="upgrade" group="hikashoppayment">
-	<name>Billplz Payment Plugin for Hikashop 3.5</name>
-	<creationDate>08/08/2018</creationDate>
-	<version>3.2.0</version>
-	<author>Wan @ Billplz</author>
-	<authorEmail>wan@billplz.com</authorEmail>
+<extension type="plugin" version="3.3.0" method="upgrade" group="hikashoppayment">
+	<name>Billplz Payment Plugin for Hikashop 3.5 - 4.4</name>
+	<creationDate>2 June 2021</creationDate>
+	<version>3.3.0</version>
+	<author>Billplz Sdn Bhd</author>
+	<authorEmail>team@billplz.com</authorEmail>
 	<authorUrl>https://www.billplz.com</authorUrl>
-	<copyright>(C) 2018 Billplz Sdn. Bhd. All rights reserved.</copyright>
+	<copyright>(C) 2021 Billplz Sdn. Bhd. All rights reserved.</copyright>
 	<license>http://www.gnu.org/licenses/gpl-2.0.html GNU/GPL</license>
-	<description>This plugin enables you to setup your Billplz payment system</description>
+	<description>This plugin enables you to collect payment with Billplz</description>
 	<files>
 		<filename plugin="billplz">billplz.php</filename>
 		<filename>billplz_end.php</filename>
-		<filename>API.php</filename>
-		<filename>Connect.php</filename>
-		<filename>logo-billplz.png</filename>
+		<filename>api_class.php</filename>
+		<filename>connect_class.php</filename>
+		<filename>Billplz.png</filename>
 		<filename>index.html</filename>
+		<folder>sql</folder>
 	</files>
+	<install>
+		<sql>
+			<file driver="mysqli">sql/mysql/tables.sql</file>
+			<file driver="mysqli" charset="utf8">sql/mysql/tables.sql</file>
+		</sql>
+	</install>
 	<params addpath="/components/com_hikashop/params">
 		<param name="pluginoptions" type="pluginoptions" default="plugin" label="hikashop" description="HikaShop options" />
 	</params>

@@ -13,14 +13,15 @@ defined('_JEXEC') or die('Restricted access');
     <br/>
     <?php
     
-    require 'API.php';
-    require 'Connect.php';
+    require_once( dirname(__FILE__).DS.'api_class.php' );
+    require_once( dirname(__FILE__).DS.'connect_class.php' );
 
     $api_key = trim($this->vars['api_key']);
     $collection_id = trim($this->vars['collection_id']);
 
-    $connnect = (new Billplz\Hikashop\Connect($api_key))->detectMode();
-    $billplz = new Billplz\Hikashop\API($connnect);
+    $connect = new Billplz\Hikashop\Connect($api_key);
+    $connect->setStaging($this->vars['sandbox']);
+    $billplz = new Billplz\Hikashop\API($connect);
 
     $parameter = array(
         'collection_id' => $collection_id,
@@ -29,19 +30,43 @@ defined('_JEXEC') or die('Restricted access');
         'name' => $this->vars['name'],
         'amount' => strval($this->vars['amount'] * 100),
         'callback_url' => $this->vars['return_url'],
-        'description' => mb_substr($this->vars['description'], 0, 199)
+        'description' => mb_substr($this->vars['description'], 0, 200)
     );
 
     $optional = array(
-        'redirect_url' => $this->vars['return_url'],
-        'reference_2_label' => $this->vars['reference_2_label'],
-        'reference_2' => $this->vars['reference_2']
+        'redirect_url' => $this->vars['return_url']
     );
 
-    $create_bill = $billplz->createBill($parameter, $optional, '0');
+    $create_bill = $billplz->createBill($parameter, $optional);
     list($rheader, $rbody) = $billplz->toArray($create_bill);
-    error_log(print_r($rbody, true));
+
+    if ($rheader !== 200){
+        throw new \Exception('Invalid API Key set!');
+    }
+
+    if ($this->payment_params->debug) {
+        $this->writeToLog($rbody);
+    }
+
+    $db = JFactory::getDBO();
+    $query = $db->getQuery(true);
+    $columns = array('bill_slug', 'order_id', 'amount_sens');
+    $values = array($db->quote($rbody['id']), $this->vars['order_id'], $db->quote($parameter['amount']));
+
+    $query
+      ->insert($db->quoteName('#__hikashop_billplz'))
+      ->columns($db->quoteName($columns))
+      ->values(implode(',', $values));
+
+    $db->setQuery($query);
+    $success = $db->query();
+    
+    if(!$success){
+        exit('Failed to insert record');
+    }
+
     $url = $rbody['url'];
+
     ?>
     
     <form id="hikashop_billplz_form" name="hikashop_billplz_form" action="<?php echo $url;?>" method="get">

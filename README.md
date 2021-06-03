@@ -1,11 +1,10 @@
-# Billplz for Hikashop 3.5
-Integrate Billplz in Hikashop 3.5. For Hikashop 2.6, please refer to Billplz for [Hikashop 2.6](https://github.com/Billplz/Billplz-for-Hikashop-2.6/)
+# Billplz for Hikashop 3.5 - 4.4
+
+Integrate Billplz in Hikashop version 3.5 - 4.4. For Hikashop 2.6, please refer to Billplz for [Hikashop 2.6](https://github.com/Billplz/Billplz-for-Hikashop-2.6/)
 
 ## System Requirements
 
-  * Tested with Joomla 3.8
-  * Tested with Hikashop Starter 3.5.x
-  * Tested with PHP 5.6, 7.0, 7.1, 7.2
+  * Hikashop Starter 3.5.x - 4.4.x
 
 ## Installation
 
@@ -18,17 +17,22 @@ Integrate Billplz in Hikashop 3.5. For Hikashop 2.6, please refer to Billplz for
   * Save & Close
   
 ### Specific Configuration
-
+  * **Sandbox Mode** : Yes if Sandbox. No if Production
   * **API Secret Key** : Get the API Key at Billplz Setting Page
   * **Collection ID** : Get the Collection ID at Billplz Billing Page
   * **X Signature Key** : Get the X Signature Key at Billplz Setting Page
   * Debug : No
   * Invalid status : cancelled
+  * Pending status : created
   * Verified status : Confirmed
   
 ### Custom Image
 
-  * Upload **logo-billplz.png** file to **/media/com_hikashop/images/payment/**
+  * Upload **Billplz.png** file to **/media/com_hikashop/images/payment/**
+
+## Uninstallation
+
+You may remove the plugin as usual. However, the table with name *hikashop_billplz* need to be removed manually. 
   
 # Other
 

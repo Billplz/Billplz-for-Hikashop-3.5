@@ -3,8 +3,8 @@
 /**
  * Billplz for Hikashop Plugin
  * @ package Billplz_Hikashop
- * @ version 3.2.0
- * @ author Wan @ Billplz
+ * @ version 3.3.0
+ * @ author Billplz Sdn Bhd
  */
 
 //Prevent from direct access
@@ -15,7 +15,7 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
 {
 
     //List of the plugin's accepted currencies. The plugin won't appear on the checkout if the current currency is not in that list. You can remove that attribute if you want your payment plugin to display for all the currencies
-    var $accepted_currencies = array("MYR", "RM");
+    var $accepted_currencies = array("MYR");
     // Multiple plugin configurations. It should usually be set to true
     var $multiple = true;
     //Payment plugin name (the name of the PHP file)
@@ -28,6 +28,8 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
     
     // The third parameter is the default value.
     var $pluginConfig = array(
+        // Billplz Is Sandbox?
+        'billplzsandbox' => array("Sandbox Mode", 'boolean', '0'),
         // Billplz API Secret Key
         'billplzapikey' => array("API Secret Key", 'input'),
         // Billplz Collection ID
@@ -40,9 +42,12 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
         // Write some things on the debug file
         'debug' => array('DEBUG', 'boolean', '0'),
         'invalid_status' => array('INVALID_STATUS', 'orderstatus'),
+        'pending_status' => array('PENDING_STATUS', 'orderstatus'),
         // Valid status for order if the payment has been done well
         'verified_status' => array('VERIFIED_STATUS', 'orderstatus')
     );
+
+    var $cachedDebug = '';
 
     /**
      * The constructor is optional if you don't need to initialize some parameters of some fields of the configuration and not that it can also be done in the getPaymentDefaultValues function as you will see later on
@@ -100,11 +105,12 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
                 'name' => $name,
                 'email' => $this->user->user_email,
                 'phone' => @$order->cart->billing_address->address_telephone,
+                'sandbox' => $this->payment_params->billplzsandbox,
                 'api_key' => $this->payment_params->billplzapikey,
                 'collection_id' => $this->payment_params->billplzcollectionid,
                 'description' => "Order Number: " . $order->order_number,
-                'reference_2_label' => "Order ID",
-                'reference_2' => $order_id,
+                'order_id' => $order_id,
+                'item_id' => $item_id,
                 'amount' => strval($amount),
                 'return_url' => $return_url
             );
@@ -115,7 +121,7 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
                 $this->writeToLog($all_parameter);
             }
 
-            // Ending the checkout, ready to be redirect to the plateform payment final form
+            // Ending the checkout, ready to be redirect to the platform payment final form
             // The showPage function will call the example_end.php file which will display the redirection form containing all the parameters for the payment platform
             return $this->showPage('end');
         }
@@ -127,10 +133,11 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
     function getPaymentDefaultValues(&$element)
     {
         $element->payment_name = 'Billplz';
-        $element->payment_description = 'Pay using <strong>FPX, Boost Wallet</strong>';
-        $element->payment_images = 'logo-billplz';
+        $element->payment_description = 'Pay using <strong>Billplz</strong>';
+        $element->payment_images = 'Billplz';
         $element->payment_params->currency = $this->accepted_currencies[0];
         $element->payment_params->invalid_status = 'cancelled';
+        $element->payment_params->pending_status = 'created';
         $element->payment_params->verified_status = 'confirmed';
     }
 
@@ -139,12 +146,28 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
      */
     function onPaymentNotification(&$statuses)
     {
-        require 'API.php';
-        require 'Connect.php';
+        require_once( dirname(__FILE__).DS.'api_class.php' );
+        require_once( dirname(__FILE__).DS.'connect_class.php' );
 
         $vars = array();
 
-        $order_id = (int)$_GET['order_id'];
+        $bill_id = $_GET['billplz']['id'] ?? '';
+
+        if (empty($bill_id)){
+            $bill_id = $_POST['id'] ?? '';
+        }
+
+        $db = JFactory::getDbo();
+        $query = $db->getQuery(true)
+                    ->select($db->quoteName(array('order_id', 'amount_sens')))
+                    ->from($db->quoteName('#__hikashop_billplz'))
+                    ->where('bill_slug = ' . $db->Quote($bill_id));
+ 
+        $db->setQuery($query);
+ 
+        $result = $db->loadRow();
+
+        $order_id = (int)$result[0];
         $dbOrder = $this->getOrder($order_id);
 
         $this->loadPaymentParams($dbOrder);
@@ -155,30 +178,28 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
         }
 
         $x_signature = $this->payment_params->billplzxsignature;
-        $data = Billplz\Hikashop\Connect::getXSignature($x_signature);
 
-        $api_key = trim($this->payment_params->billplzapikey);
-        $connnect = (new Billplz\Hikashop\Connect($api_key))->detectMode();
-        $billplz = new Billplz\Hikashop\API($connnect);
-        list($rheader, $rbody) = $billplz->toArray($billplz->getBill($data['id']));
-
-        if ($order_id != $rbody['reference_2']) {
-            return false;
+        try {
+            $data = Billplz\Hikashop\Connect::getXSignature($x_signature);
+        } catch (Exception $e) {
+            header('HTTP/1.0 403 Forbidden');
+            exit('Failed X Signature Validation');
         }
+
         // Debug mode activated or not
         if ($this->payment_params->debug) {
             // Here we display debug information which will be  catched by HikaShop and stored in the payment log file available in the configuration's Files section.
-            echo print_r($data, true) . "\n\n\n";
-            echo print_r($rbdoy, true) . "\n\n\n";
-            echo print_r($dbOrder, true) . "\n\n\n";
+            $this->writeToLog(print_r($data, true));
+            $this->writeToLog(print_r($dbOrder, true));
         }
+
         $history = new stdClass();
         $history->notified = 0;
-        $history->amount = number_format($data['amount'] / 100, 2);
-        $history->data = $rbody['url'];
+        $history->amount = number_format($result[1] / 100, 2);
+        $history->data = $data['id'];
         $email = new stdClass();
             
-        if ($rbody['paid']) {
+        if ($data['paid']) {
             $history->notified = 1;
             $order_status = $this->payment_params->verified_status;
             $url = HIKASHOP_LIVE.'administrator/index.php?option=com_hikashop&ctrl=order&task=edit&order_id=' . $order_id;
@@ -192,6 +213,8 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
             if ($dbOrder->order_status != $this->payment_params->verified_status) {
                 $this->modifyOrder($order_id, $this->payment_params->verified_status, $history, $email);
             }
+        } else if (isset($data['transaction_status']) && $data['transaction_status'] == 'pending') {
+            $this->modifyOrder($order_id, $this->payment_params->pending_status, $history, $email);
         } else {
             $this->modifyOrder($order_id, $this->payment_params->invalid_status, $history, $email);
         }
@@ -211,7 +234,7 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
         }
 
         if ($data['type'] === 'redirect') {
-            if ($rbody['paid']) {
+            if ($data['paid']) {
                 $this->app->redirect($return_url);
             } else {
                 $this->app->redirect($cancel_url);
@@ -228,5 +251,15 @@ class plgHikashoppaymentBillplz extends hikashopPaymentPlugin
             $element->payment_params->currency = $this->accepted_currencies[0];
         }
         return true;
+    }
+
+    function writeToLog($data = null) {
+        if(!empty($data)) {
+            hikashop_writeToLog($data, $this->name);
+            if(is_array($data) || is_object($data))
+                $data = str_replace(array("\r","\n","\r\n"),"\r\n",print_r($data, true))."\r\n\r\n";
+            $this->cachedDebug .= $data;
+        }
+        return $this->cachedDebug;
     }
 }
